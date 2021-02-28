@@ -1,0 +1,109 @@
+service: web-performance-analytics
+frameworkVersion: '2'
+provider:
+    name: aws
+    runtime: nodejs12.x
+
+functions:
+    analytics:
+        handler: handler.log
+        events:
+            - http:
+                  path: /analytics
+                  cors: true
+                  method: post
+
+resources:
+    Resources:
+        AnalyticsDashboard:
+            Type: AWS::CloudWatch::Dashboard
+            Properties:
+                DashboardName: Frontend
+                DashboardBody: !Sub
+                    - |
+                        {
+                            "widgets": [
+                                {
+                                    "type": "log",
+                                    "x": 6,
+                                    "y": 6,
+                                    "width": 9,
+                                    "height": 6,
+                                    "properties": {
+                                        "query": "SOURCE '${Function}' | stats sum(duration) by bin(10m)\n| filter type = \"analytics\" and userAction = \"BuyButton\"\n| sort @timestamp desc\n",
+                                        "region": "${Region}",
+                                        "title": "UserClickedBuyButton",
+                                        "view": "timeSeries",
+                                        "stacked": false
+                                    }
+                                },
+                                {
+                                    "type": "log",
+                                    "x": 15,
+                                    "y": 0,
+                                    "width": 9,
+                                    "height": 6,
+                                    "properties": {
+                                        "query": "SOURCE '${Function}' | stats avg(duration) by bin(5m)\n| filter type = \"analytics\" and userAction = \"FCP\"\n| sort @timestamp desc\n",
+                                        "region": "${Region}",
+                                        "title": "TimeToFirstContent",
+                                        "view": "timeSeries",
+                                        "stacked": false
+                                    }
+                                },
+                                {
+                                    "type": "log",
+                                    "x": 15,
+                                    "y": 6,
+                                    "width": 9,
+                                    "height": 6,
+                                    "properties": {
+                                        "query": "SOURCE '${Function}' | stats avg(duration) by bin(5m)\n| filter type = \"analytics\" and userAction = \"FID\"\n| sort @timestamp desc\n",
+                                        "region": "${Region}",
+                                        "title": "TimeToFirstInteraction",
+                                        "view": "timeSeries",
+                                        "stacked": false
+                                    }
+                                },
+                                {
+                                    "type": "log",
+                                    "x": 6,
+                                    "y": 0,
+                                    "width": 9,
+                                    "height": 6,
+                                    "properties": {
+                                        "query": "SOURCE '${Function}' | stats avg(duration) by bin(5m)\n| filter type = \"analytics\" and userAction = \"TTFB\"\n| sort @timestamp desc\n",
+                                        "region": "${Region}",
+                                        "title": "TimeToLoad",
+                                        "view": "timeSeries",
+                                        "stacked": false
+                                    }
+                                },
+                                {
+                                    "type": "log",
+                                    "x": 0,
+                                    "y": 6,
+                                    "width": 6,
+                                    "height": 6,
+                                    "properties": {
+                                        "query": "SOURCE '${Function}' | stats avg(duration) by bin(5m)\n| filter type = \"analytics\" and userAction = \"LCP\"\n| sort @timestamp desc\n",
+                                        "region": "${Region}",
+                                        "title": "LargestContentfulPaint",
+                                        "view": "timeSeries",
+                                        "stacked": false
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "x": 0,
+                                    "y": 0,
+                                    "width": 6,
+                                    "height": 6,
+                                    "properties": {
+                                        "markdown": "\n# Frontend Analytics\n[button:primary:Lighthouse Performance Calculator](https://googlechrome.github.io/lighthouse/scorecalc/)\n\nThis dashboard helps you understand the performance of your frontend app by\nmeasuring values submitted to an analytics endpoint via `web-vitals`.\n"
+                                    }
+                                }
+                            ]
+                        }
+                    - Region: ${opt:region, 'us-east-1'}
+                      Function: /aws/lambda/${self:service}-${self:provider.stage}-analytics
